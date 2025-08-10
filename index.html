@@ -5,23 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Black Hole Stopwatch</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
     
-    <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <!-- Canvas for Three.js background -->
+<body class="time-stopped">
+    <div id="loader"></div>
+
     <canvas id="bg-canvas"></canvas>
 
-    <!-- UI Container for the Stopwatch -->
     <div id="ui-container" class="ui-container">
+        <div id="lap-overlay-container"></div>
+        
         <div class="time-display" id="time-display">
             00:00:00<span class="milliseconds">.00</span>
         </div>
@@ -31,10 +30,8 @@
             <button id="lap-btn" class="btn btn-lap" disabled>Lap</button>
             <button id="reset-btn" class="btn btn-reset">Reset</button>
         </div>
-        <div id="laps-container" class="laps-container"></div>
     </div>
 
-    <!-- Three.js and Post-processing libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
@@ -43,7 +40,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
-    <!-- Custom JavaScript -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
