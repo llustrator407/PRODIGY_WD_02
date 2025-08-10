@@ -1,11 +1,27 @@
+// script.js
+
+// --- DOM ELEMENTS ---
 const timeDisplay = document.getElementById('time-display');
 const startBtn = document.getElementById('start-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const resetBtn = document.getElementById('reset-btn');
 const lapBtn = document.getElementById('lap-btn');
-const lapsContainer = document.getElementById('laps-container');
+const lapOverlayContainer = document.getElementById('lap-overlay-container');
 
-let timer = null, startTime = 0, elapsedTime = 0, isRunning = false, lapCounter = 1;
+// --- STOPWATCH STATE ---
+let timer = null;
+let startTime = 0;
+let elapsedTime = 0;
+let isRunning = false;
+let lapCounter = 1;
+
+// --- REWIND ANIMATION STATE ---
+let isRewinding = false;
+let rewindTimeLeft = 0;
+const REWIND_DURATION = 5.0; // 5 seconds
+const REWIND_SPEED_MULTIPLIER = 2.5;
+
+// --- STOPWATCH CORE FUNCTIONS ---
 
 function formatTime(t) {
     const d = new Date(t);
@@ -17,64 +33,93 @@ function formatTime(t) {
 }
 
 function updateDisplay() {
-    elapsedTime = Date.now() - startTime;
-    timeDisplay.innerHTML = formatTime(elapsedTime);
+    const currentElapsed = Date.now() - startTime;
+    timeDisplay.innerHTML = formatTime(elapsedTime + currentElapsed);
 }
 
 function start() {
-    if (!isRunning) {
-        startTime = Date.now() - elapsedTime;
+    if (!isRunning && !isRewinding) {
+        startTime = Date.now();
         timer = setInterval(updateDisplay, 10);
         isRunning = true;
         startBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
         lapBtn.disabled = false;
+        document.body.classList.remove('time-stopped');
     }
 }
 
 function pause() {
     if (isRunning) {
         clearInterval(timer);
+        elapsedTime += Date.now() - startTime;
         isRunning = false;
         startBtn.classList.remove('hidden');
         pauseBtn.classList.add('hidden');
+        document.body.classList.add('time-stopped');
     }
 }
 
 function reset() {
     clearInterval(timer);
     isRunning = false;
-    elapsedTime = 0;
-    lapCounter = 1;
+    isRewinding = true;
+    rewindTimeLeft = REWIND_DURATION;
+
     timeDisplay.innerHTML = formatTime(0);
-    lapsContainer.innerHTML = '';
-    startBtn.classList.remove('hidden');
-    pauseBtn.classList.add('hidden');
+    // When resetting, ensure colors go back to normal for the rewind animation
+    document.body.classList.remove('time-stopped');
+    startBtn.disabled = true;
+    pauseBtn.disabled = true;
     lapBtn.disabled = true;
+    resetBtn.disabled = true;
+    pauseBtn.classList.add('hidden');
+    startBtn.classList.remove('hidden');
+}
+
+function performFinalReset() {
+    isRewinding = false;
+    elapsedTime = 0;
+    startTime = 0;
+    lapCounter = 1;
+    
+    startBtn.disabled = false;
+    resetBtn.disabled = false;
+    lapBtn.disabled = true;
+
+    // After reset, put the UI back into the inverted/"stopped" state
+    document.body.classList.add('time-stopped');
+
+    horizontalRings.forEach(ring => ring.mesh.material.uniforms.uTime.value = Math.random() * 10);
+    verticalRings.forEach(ring => ring.mesh.material.uniforms.uTime.value = Math.random() * 10);
+    distortionPass.uniforms.uTime.value = 0;
 }
 
 function lap() {
-    if (isRunning) {
-        const currentLapTime = elapsedTime;
+     if (isRunning) {
+        const currentLapTime = elapsedTime + (Date.now() - startTime);
+        
+        const d = new Date(currentLapTime);
+        const h = String(d.getUTCHours()).padStart(2, '0');
+        const m = String(d.getUTCMinutes()).padStart(2, '0');
+        const s = String(d.getUTCSeconds()).padStart(2, '0');
+        const ms = String(d.getUTCMilliseconds()).padStart(3, '0').slice(0, 2);
+        const formattedLapTime = `Lap ${lapCounter}: ${h}:${m}:${s}.${ms}`;
+
         const lapElement = document.createElement('div');
-        lapElement.className = 'lap-item';
+        lapElement.className = 'lap-overlay-item';
+        lapElement.textContent = formattedLapTime;
 
-        const lapNumber = document.createElement('span');
-        lapNumber.className = 'lap-number';
-        lapNumber.textContent = `Lap ${lapCounter}`;
-
-        const lapTimeValue = document.createElement('span');
-        lapTimeValue.className = 'lap-time-value';
-        lapTimeValue.textContent = formatTime(currentLapTime).replace(/<[^>]*>/g, ""); // Remove html tags for lap display
-
-        lapElement.appendChild(lapNumber);
-        lapElement.appendChild(lapTimeValue);
-
-        lapsContainer.prepend(lapElement);
+        lapOverlayContainer.appendChild(lapElement);
         lapCounter++;
+
+        lapElement.addEventListener('animationend', () => {
+            lapElement.remove();
+        });
     }
 }
 
+// --- EVENT LISTENERS ---
 startBtn.addEventListener('click', start);
 pauseBtn.addEventListener('click', pause);
 resetBtn.addEventListener('click', reset);
@@ -82,12 +127,12 @@ lapBtn.addEventListener('click', lap);
 
 
 // --- ADVANCED THREE.JS BLACK HOLE ---
-let scene, camera, renderer, composer, distortionPass;
+let scene, camera, renderer, composer, distortionPass, invertPass;
 const clock = new THREE.Clock();
 const horizontalRings = [];
 const verticalRings = [];
 
-// --- Shaders ---
+// --- SHADERS ---
 const vertexShader = `
     varying vec2 vUv;
     void main() {
@@ -131,7 +176,6 @@ const fragmentShader = `
         float angle = vUv.y * 2.0 * 3.14159;
         float alpha = smoothstep(0.0, 0.1, radius) * (1.0 - smoothstep(0.9, 1.0, radius));
         
-        // Use the seed to offset the noise pattern
         vec2 uv = vec2(angle + uSeed, radius * 2.0 + uSeed); 
         
         vec2 q = vec2( fbm( uv + uTime * 0.1 ),
@@ -146,11 +190,10 @@ const fragmentShader = `
     }
 `;
 
-// --- Enhanced Gravitational Lensing Shader ---
 const DistortionShader = {
     uniforms: {
         'tDiffuse': { value: null },
-        'uStrength': { value: 0.05 },
+        'uStrength': { value: 0.0000001 },
         'uTime': { value: 0.0 }
     },
     vertexShader: `
@@ -169,15 +212,17 @@ const DistortionShader = {
         void main() {
             vec2 center = vec2(0.5, 0.5);
             vec2 uv = vUv;
+            
             float dist = distance(uv, center);
             
-            float shimmer = sin(dist * 10.0 - uTime * 0.5) * 0.1 + 0.9;
+            float falloff = smoothstep(0.8, 0.15, dist);
+
+            float strength = pow(falloff, 2.0) * uStrength;
             
-            float strength = smoothstep(0.6, 0.0, dist) * uStrength * shimmer;
+            vec2 direction = normalize(center - uv);
+            vec2 swirlDirection = vec2(-direction.y, direction.x);
             
-            vec2 direction = normalize(uv - center);
-            
-            uv += direction * strength;
+            uv += direction * strength + swirlDirection * strength * 0.35;
             
             vec4 color = texture2D(tDiffuse, uv);
             gl_FragColor = color;
@@ -185,7 +230,24 @@ const DistortionShader = {
     `
 };
 
+const InvertShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'uIntensity': { value: 1.0 } // Start with inverted colors
+    },
+    vertexShader: ` varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); } `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uIntensity;
+        varying vec2 vUv;
+        void main() {
+            vec4 texColor = texture2D(tDiffuse, vUv);
+            gl_FragColor = vec4(mix(texColor.rgb, vec3(1.0 - texColor.r, 1.0 - texColor.g, 1.0 - texColor.b), uIntensity), texColor.a);
+        }
+    `
+};
 
+// --- THREE.JS SETUP AND ANIMATION LOOP ---
 function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -198,22 +260,20 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    // --- Post-processing Chain ---
     const renderPass = new THREE.RenderPass(scene, camera);
-    
     distortionPass = new THREE.ShaderPass(DistortionShader);
-
     const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
     bloomPass.threshold = 0;
     bloomPass.strength = 1.0;
     bloomPass.radius = 0.4;
+    invertPass = new THREE.ShaderPass(InvertShader);
 
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(renderPass);
     composer.addPass(distortionPass);
     composer.addPass(bloomPass);
+    composer.addPass(invertPass); 
 
-    // --- Starfield ---
     const starVertices = [];
     for (let i = 0; i < 10000; i++) {
         const x = (Math.random() - 0.5) * 2000;
@@ -227,14 +287,12 @@ function init() {
     const stars = new THREE.Points(starGeometry, starMaterial);
     scene.add(stars);
 
-    // --- Black Hole Sphere ---
     const blackHoleGeometry = new THREE.SphereGeometry(2.4, 32, 32);
     const blackHoleMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
     const blackHole = new THREE.Mesh(blackHoleGeometry, blackHoleMaterial);
     blackHole.position.z = 0.1;
     scene.add(blackHole);
     
-    // --- Define base material with a seed uniform ---
     const baseMaterial = new THREE.ShaderMaterial({
         uniforms: { 
             uTime: { value: 0.0 },
@@ -243,52 +301,42 @@ function init() {
         vertexShader, fragmentShader, side: THREE.DoubleSide, transparent: true
     });
 
-    // --- Create Horizontal Disk ---
-    let numberOfRings = 5;
-    let baseRadius = 2.6;
-    let currentRadius = baseRadius;
-    for(let i = 0; i < numberOfRings; i++) {
+    let numberOfRingsH = 5, baseRadiusH = 2.6;
+    for(let i = 0; i < numberOfRingsH; i++) {
         const ringMaterial = baseMaterial.clone();
         ringMaterial.uniforms.uTime.value = Math.random() * 100;
         ringMaterial.uniforms.uSeed.value = Math.random() * 10.0;
-
-        const gap = Math.random() * 0.04 + 0.01; 
-        const innerRadius = currentRadius + gap;
-        const thickness = Math.random() * 0.4 + 0.15;
-        const outerRadius = innerRadius + thickness;
+        const innerRadius = baseRadiusH + (Math.random() * 0.04 + 0.01);
+        const outerRadius = innerRadius + (0*0.4 + 0.35);
         const ringGeometry = new THREE.RingGeometry(innerRadius, outerRadius, 64);
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
         
-        ring.rotation.x = -Math.PI / 2.2 - (5 * (Math.PI / 180));
-        ring.rotation.y = 5 * (Math.PI / 180); // Rotated 5 degrees to the left
-
-        horizontalRings.push({ mesh: ring, speed: 0.18 - (i * 0.02) });
+        ring.rotation.z = Math.random() * Math.PI * 2;
+        
+        ring.rotation.x = -Math.PI / 2.2 - (6 * (Math.PI / 180));
+        ring.rotation.y = 10 * (Math.PI / 180);
+        horizontalRings.push({ mesh: ring, speed: 0.28 - (i * 0.02) });
         scene.add(ring);
-        currentRadius = outerRadius;
+        baseRadiusH = outerRadius;
     }
 
-    // --- Create Vertical Disk ---
-    numberOfRings = 8;
-    baseRadius = 2.5;
-    currentRadius = baseRadius;
-    for(let i = 0; i < numberOfRings; i++) {
+    let numberOfRingsV = 8, baseRadiusV = 2.5;
+    for(let i = 0; i < numberOfRingsV; i++) {
         const ringMaterial = baseMaterial.clone();
         ringMaterial.uniforms.uTime.value = Math.random() * 100;
         ringMaterial.uniforms.uSeed.value = Math.random() * 10.0;
-
-        const gap = Math.random() * 0.05 + 0.02; 
-        const innerRadius = currentRadius + gap;
-        const thickness = Math.random() * 0.3 + 0.1;
-        const outerRadius = innerRadius + thickness;
+        const innerRadius = baseRadiusV + (Math.random() * 0.05 + 0.02);
+        const outerRadius = innerRadius + (Math.random() * 0.3 + 0.1);
         const ringGeometry = new THREE.RingGeometry(innerRadius, outerRadius, 128);
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-        
-        ring.rotation.x = -5 * (Math.PI / 180); 
-        ring.rotation.y = 10 * (Math.PI / 180);
 
-        verticalRings.push({ mesh: ring, speed: 0.15 - (i * 0.025) });
+        ring.rotation.z = Math.random() * Math.PI * 2;
+        
+        ring.rotation.x = -10 * (Math.PI / 180);
+        ring.rotation.y = 10 * (Math.PI / 180);
+        verticalRings.push({ mesh: ring, speed: 0.25 - (i * 0.025) });
         scene.add(ring);
-        currentRadius = outerRadius;
+        baseRadiusV = outerRadius;
     }
 
     window.addEventListener('resize', onWindowResize, false);
@@ -304,25 +352,51 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
-    const elapsedTime = clock.getElapsedTime();
     
-    // Animate each ring's material independently
-    horizontalRings.forEach(ring => {
-        ring.mesh.rotation.z -= delta * ring.speed;
-        ring.mesh.material.uniforms.uTime.value += delta;
-    });
-    
-    // Animate vertical rings
-    verticalRings.forEach(ring => {
-        ring.mesh.rotation.z -= delta * ring.speed;
-        ring.mesh.material.uniforms.uTime.value += delta;
-    });
-    
-    // Update time for distortion shader
-    distortionPass.uniforms.uTime.value = elapsedTime;
+    if (isRunning) {
+        const elapsedTime = clock.getElapsedTime();
+        horizontalRings.forEach(ring => {
+            ring.mesh.rotation.z -= delta * ring.speed;
+            ring.mesh.material.uniforms.uTime.value += delta;
+        });
+        verticalRings.forEach(ring => {
+            ring.mesh.rotation.z -= delta * ring.speed;
+            ring.mesh.material.uniforms.uTime.value += delta;
+        });
+        distortionPass.uniforms.uTime.value = elapsedTime;
+    } 
+    else if (isRewinding) {
+        if (rewindTimeLeft > 0) {
+            rewindTimeLeft -= delta;
+            const rewindDelta = delta * REWIND_SPEED_MULTIPLIER;
+            
+            horizontalRings.forEach(ring => {
+                ring.mesh.rotation.z += rewindDelta * ring.speed;
+                ring.mesh.material.uniforms.uTime.value -= rewindDelta;
+            });
+            verticalRings.forEach(ring => {
+                ring.mesh.rotation.z += rewindDelta * ring.speed;
+                ring.mesh.material.uniforms.uTime.value -= rewindDelta;
+            });
+            distortionPass.uniforms.uTime.value -= rewindDelta;
+        } else {
+            performFinalReset();
+        }
+    }
+
+    const targetIntensity = (!isRunning && !isRewinding) ? 1.0 : 0.0;
+    const currentIntensity = invertPass.uniforms.uIntensity.value;
+    invertPass.uniforms.uIntensity.value += (targetIntensity - currentIntensity) * 0.1;
 
     composer.render();
 }
 
+// --- INITIALIZE AND START THE APP ---
 init();
 animate();
+
+// --- Loading Animation Trigger ---
+window.onload = () => {
+    const loader = document.getElementById('loader');
+    loader.classList.add('loader-hidden');
+};
