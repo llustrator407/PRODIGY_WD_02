@@ -1,14 +1,20 @@
-// script.js
-
 // --- DOM ELEMENTS ---
 const timeDisplay = document.getElementById('time-display');
 const startBtn = document.getElementById('start-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const resetBtn = document.getElementById('reset-btn');
 const lapBtn = document.getElementById('lap-btn');
-const lapOverlayContainer = document.getElementById('lap-overlay-container');
+const lapsContainer = document.getElementById('laps-container'); 
+const audioUnlockOverlay = document.getElementById('audio-unlock-overlay');
 
-// --- STOPWATCH STATE ---
+// --- AUDIO ELEMENTS ---
+const pauseSound = new Audio('stop.mp3'); // stop.mp3
+const resumeSound = new Audio('resume.mp3'); // resume.mp3
+const resetSound = new Audio('Reset.mp3'); // Reset.mp3
+pauseSound.preload = 'auto';
+resumeSound.preload = 'auto';
+resetSound.preload = 'auto';
+
 let timer = null;
 let startTime = 0;
 let elapsedTime = 0;
@@ -33,17 +39,21 @@ function formatTime(t) {
 }
 
 function updateDisplay() {
-    const currentElapsed = Date.now() - startTime;
-    timeDisplay.innerHTML = formatTime(elapsedTime + currentElapsed);
+    timeDisplay.innerHTML = formatTime(elapsedTime + (Date.now() - startTime));
 }
 
 function start() {
     if (!isRunning && !isRewinding) {
-        startTime = Date.now();
+        resumeSound.currentTime = 0;
+        resumeSound.play().catch(e => console.error("Error playing resume sound:", e));
+        
+        // Set the start time, offsetting by any previously elapsed time
+        startTime = Date.now() - elapsedTime;
         timer = setInterval(updateDisplay, 10);
         isRunning = true;
         startBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
+        pauseBtn.disabled = false;
         lapBtn.disabled = false;
         document.body.classList.remove('time-stopped');
     }
@@ -51,8 +61,11 @@ function start() {
 
 function pause() {
     if (isRunning) {
+        pauseSound.currentTime = 0;
+        pauseSound.play().catch(e => console.error("Error playing pause sound:", e));
         clearInterval(timer);
-        elapsedTime += Date.now() - startTime;
+        // Store the total elapsed time up to this point
+        elapsedTime = Date.now() - startTime;
         isRunning = false;
         startBtn.classList.remove('hidden');
         pauseBtn.classList.add('hidden');
@@ -61,13 +74,15 @@ function pause() {
 }
 
 function reset() {
+    resetSound.currentTime = 0;
+    resetSound.play().catch(e => console.error("Error playing reset sound:", e));
+
     clearInterval(timer);
     isRunning = false;
     isRewinding = true;
     rewindTimeLeft = REWIND_DURATION;
 
     timeDisplay.innerHTML = formatTime(0);
-    // When resetting, ensure colors go back to normal for the rewind animation
     document.body.classList.remove('time-stopped');
     startBtn.disabled = true;
     pauseBtn.disabled = true;
@@ -82,12 +97,12 @@ function performFinalReset() {
     elapsedTime = 0;
     startTime = 0;
     lapCounter = 1;
+    lapsContainer.innerHTML = ''; // Clear the lap box
     
     startBtn.disabled = false;
     resetBtn.disabled = false;
     lapBtn.disabled = true;
 
-    // After reset, put the UI back into the inverted/"stopped" state
     document.body.classList.add('time-stopped');
 
     horizontalRings.forEach(ring => ring.mesh.material.uniforms.uTime.value = Math.random() * 10);
@@ -99,23 +114,24 @@ function lap() {
      if (isRunning) {
         const currentLapTime = elapsedTime + (Date.now() - startTime);
         
-        const d = new Date(currentLapTime);
-        const h = String(d.getUTCHours()).padStart(2, '0');
-        const m = String(d.getUTCMinutes()).padStart(2, '0');
-        const s = String(d.getUTCSeconds()).padStart(2, '0');
-        const ms = String(d.getUTCMilliseconds()).padStart(3, '0').slice(0, 2);
-        const formattedLapTime = `Lap ${lapCounter}: ${h}:${m}:${s}.${ms}`;
-
         const lapElement = document.createElement('div');
-        lapElement.className = 'lap-overlay-item';
-        lapElement.textContent = formattedLapTime;
+        lapElement.className = 'lap-item';
 
-        lapOverlayContainer.appendChild(lapElement);
+        const lapNumberSpan = document.createElement('span');
+        lapNumberSpan.className = 'lap-number';
+        lapNumberSpan.textContent = `Lap ${lapCounter}`;
+
+        const lapTimeSpan = document.createElement('span');
+        lapTimeSpan.className = 'lap-time-value';
+        // Use the formatTime function but remove the HTML tags for plain text
+        lapTimeSpan.textContent = formatTime(currentLapTime).replace(/<[^>]*>/g, "");
+
+        lapElement.appendChild(lapNumberSpan);
+        lapElement.appendChild(lapTimeSpan);
+
+        // Prepend to show the latest lap at the top
+        lapsContainer.prepend(lapElement);
         lapCounter++;
-
-        lapElement.addEventListener('animationend', () => {
-            lapElement.remove();
-        });
     }
 }
 
@@ -124,6 +140,18 @@ startBtn.addEventListener('click', start);
 pauseBtn.addEventListener('click', pause);
 resetBtn.addEventListener('click', reset);
 lapBtn.addEventListener('click', lap);
+
+// --- Audio Unlock Logic ---
+audioUnlockOverlay.addEventListener('click', () => {
+    pauseSound.play().catch(() => {});
+    pauseSound.pause();
+    resumeSound.play().catch(() => {});
+    resumeSound.pause();
+    resetSound.play().catch(() => {});
+    resetSound.pause();
+
+    audioUnlockOverlay.style.display = 'none';
+}, { once: true });
 
 
 // --- ADVANCED THREE.JS BLACK HOLE ---
@@ -354,7 +382,7 @@ function animate() {
     const delta = clock.getDelta();
     
     if (isRunning) {
-        const elapsedTime = clock.getElapsedTime();
+        // Correctly update the animation time while running
         horizontalRings.forEach(ring => {
             ring.mesh.rotation.z -= delta * ring.speed;
             ring.mesh.material.uniforms.uTime.value += delta;
@@ -363,7 +391,7 @@ function animate() {
             ring.mesh.rotation.z -= delta * ring.speed;
             ring.mesh.material.uniforms.uTime.value += delta;
         });
-        distortionPass.uniforms.uTime.value = elapsedTime;
+        distortionPass.uniforms.uTime.value += delta;
     } 
     else if (isRewinding) {
         if (rewindTimeLeft > 0) {
@@ -398,5 +426,7 @@ animate();
 // --- Loading Animation Trigger ---
 window.onload = () => {
     const loader = document.getElementById('loader');
-    loader.classList.add('loader-hidden');
+    if (loader) {
+        loader.classList.add('loader-hidden');
+    }
 };
