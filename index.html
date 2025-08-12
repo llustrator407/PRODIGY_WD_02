@@ -1,55 +1,52 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Black Hole Stopwatch</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
-    
-    <!-- Custom Stylesheet -->
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <!-- Canvas for Three.js background -->
-    <canvas id="bg-canvas"></canvas>
+ <html lang="en">
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Black Hole Stopwatch</title>
 
-    <!-- UI Container for the Stopwatch -->
-    <div id="ui-container" class="ui-container">
-        <div class="time-display" id="time-display">
-            00:00:00<span class="milliseconds">.00</span>
-        </div>
-        <div class="button-container">
-            <button id="start-btn" class="btn btn-start">Start</button>
-            <button id="pause-btn" class="btn btn-pause hidden">Pause</button>
-            <button id="reset-btn" class="btn btn-reset">Reset</button>
-            <button id="lap-btn" class="btn btn-lap" disabled>Lap</button>
-        </div>
-        <!-- Container for the scrollable lap list -->
-        <div id="laps-container" class="laps-container"></div>
-    </div>
+     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Audio Unlock Overlay -->
-    <div id="audio-unlock-overlay">
-        <button id="audio-unlock-btn">Click to Start</button>
-    </div>
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
 
-    <!-- Three.js and Post-processing libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+     <link rel="stylesheet" href="style.css">
+     <style>
+         body.fade-in {
+             opacity: 0;
+             transition: opacity 1s ease-in-out;
+         }
+     </style>
+ </head>
+ <body class="fade-in">
+     <canvas id="bg-canvas"></canvas>
 
-    <!-- Custom JavaScript -->
-    <script type="module" src="script.js"></script>
-</body>
-</html>
+     <div id="ui-container" class="ui-container">
+         <div class="time-display" id="time-display">
+             00:00:00<span class="milliseconds">.00</span>
+         </div>
+         <div class="button-container">
+             <button id="start-btn" class="btn btn-start">Start</button>
+             <button id="pause-btn" class="btn btn-pause hidden">Pause</button>
+             <button id="reset-btn" class="btn btn-reset">Reset</button>
+             <button id="lap-btn" class="btn btn-lap" disabled>Lap</button>
+         </div>
+         <div id="laps-container" class="laps-container"></div>
+     </div>
+
+     <div id="audio-unlock-overlay">
+         <button id="audio-unlock-btn">Click to Start</button>
+     </div>
+
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+     <script type="module" src="script.js"></script>
+ </body>
+ </html>
