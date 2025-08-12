@@ -1,20 +1,3 @@
-#loader {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #000;
-    z-index: 9999;
-    transition: opacity 1.5s ease;
-}
-
-.loader-hidden {
-    opacity: 0;
-    pointer-events: none; /* Allows interaction with the page after fade-out */
-}
-
-
 body {
     font-family: 'Inter', sans-serif;
     background-color: #000;
@@ -33,7 +16,7 @@ body {
 
 .ui-container {
     position: absolute;
-    top: 40%;
+    top: 33%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
@@ -42,15 +25,12 @@ body {
     width: 90%;
     max-width: 320px;
     z-index: 1;
-    /* Added for smooth filter transition */
-    transition: filter 0.4s ease-in-out;
-}
-
-.time-stopped .ui-container {
-    filter: invert(1);
+    display: flex;
+    flex-direction: column;
 }
 
 .time-display {
+    order: 2; /* Moved below the lap box */
     font-family: 'Orbitron', sans-serif;
     font-size: 2.5rem;
     font-weight: 700;
@@ -66,6 +46,7 @@ body {
 }
 
 .button-container {
+    order: 3; /* Moved to the bottom */
     display: flex;
     justify-content: center;
     gap: 0.5rem;
@@ -106,42 +87,64 @@ body {
     color: #000;
 }
 
-#lap-overlay-container {
-    position: absolute;
-    top: 30;
-    left: 0;
-    width: 100%;
-    height: 60px;
-    pointer-events: none;
+.laps-container {
+    order: 1; /* Moved to the top */
+    margin-bottom: 1.5rem; /* Added margin below */
+    height: 120px;
+    overflow-y: auto;
+    background: transparent; /* Made fully transparent */
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    /* backdrop-filter: blur(5px); Removed for full transparency */
+    border: none; /* Removed border */
+    text-align: left;
 }
 
-.lap-overlay-item {
-    position: absolute;
-    width: 100%;
-    top: -50%;
-    left: 0;
+.lap-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 199, 0, 0.2);
     font-family: 'Roboto Mono', monospace;
-    font-size: 1.25rem;
-    color: #00ffdd;
-    text-shadow: 0 0 8px rgba(0, 255, 221, 0.7);
-    animation: fadeAndRise 2s ease-out forwards;
+    color: #ddd;
 }
 
-@keyframes fadeAndRise {
-    0% {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    20% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    80% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    100% {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
+.lap-item:last-child {
+    border-bottom: none;
+}
+
+.lap-number {
+    color: #ccc;
+}
+
+.lap-time-value {
+    color: #ffc700;
+}
+
+
+#audio-unlock-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    cursor: pointer;
+}
+
+#audio-unlock-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    color: #000;
+    background: #ffc700;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(255, 199, 0, 0.8);
 }
